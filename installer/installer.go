@@ -44,6 +44,18 @@ type InstalledDotfile struct {
 	InstallError error
 }
 
+func (p *InstalledDotfile) GetError() error {
+	if p.PrepareError != nil {
+		return p.PrepareError
+	}
+
+	return p.InstallError
+}
+
+func (p *InstalledDotfile) GetPreparedDotfile() *PreparedDotfile {
+	return p.PreparedDotfile
+}
+
 // InstalledDotfiles represents a set of installed dotfiles.
 type InstalledDotfiles []*InstalledDotfile
 

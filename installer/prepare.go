@@ -60,6 +60,14 @@ type PreparedDotfile struct {
 	PrepareError error
 }
 
+func (p *PreparedDotfile) GetError() error {
+	return p.PrepareError
+}
+
+func (p *PreparedDotfile) GetPreparedDotfile() *PreparedDotfile {
+	return p
+}
+
 // IsChanged reports if the prepared dotfile has changes from the target
 // dotfile.
 func (p *PreparedDotfile) IsChanged() bool {

@@ -15,6 +15,11 @@ var e = color.RedString("errn:")
 var w = color.YellowString("warn:")
 var n = color.CyanString("note:")
 
+type dotfileWithError interface {
+	GetError() error
+	GetPreparedDotfile() *installer.PreparedDotfile
+}
+
 // Config is a object used to configure the output logger.
 type Config struct {
 	SourceConfig    config.SourceConfig
@@ -57,7 +62,12 @@ func (l *Output) shouldLogDotfile(dotfile *installer.PreparedDotfile) bool {
 }
 
 func (l *Output) logEvent(event events.Event) {
+	switch event.Type {
+	case events.DotfileInstalled:
+		l.DotfileInfo(event.Object.(*installer.InstalledDotfile))
+	}
 	// TODO: Do something here
+	fmt.Println(event.Type)
 }
 
 // GetEventChan returns the event channel that may be sent events to be
@@ -120,15 +130,17 @@ func (l *Output) InstallInfo() {
 	fmt.Println()
 }
 
-// DotfileInfo outputs information about a single prepared dotfile. Will not
-// output anything without IsInfo. When IsVerbose is enabled additional
-// information about the prepared dotfile will be included.
-func (l *Output) DotfileInfo(dotfile *installer.PreparedDotfile) {
+// DotfileInfo outputs information about a single prepared dotfile When
+// IsVerbose is enabled additional information about the prepared dotfile will
+// be included.
+func (l *Output) DotfileInfo(dotfile dotfileWithError) {
+	preparedDotfile := dotfile.GetPreparedDotfile()
+
 	if !l.IsVerbose {
 		return
 	}
 
-	if !l.shouldLogDotfile(dotfile) {
+	if !l.shouldLogDotfile(preparedDotfile) {
 		return
 	}
 
@@ -136,14 +148,14 @@ func (l *Output) DotfileInfo(dotfile *installer.PreparedDotfile) {
 	indicatorColor := color.New()
 
 	switch {
-	case dotfile.PrepareError != nil:
+	case preparedDotfile.PrepareError != nil:
 		indicator = "⨉"
 		indicatorColor.Add(color.FgRed)
-	case dotfile.IsNew:
+	case preparedDotfile.IsNew:
 		indicatorColor.Add(color.FgHiGreen)
-	case dotfile.Removed:
+	case preparedDotfile.Removed:
 		indicatorColor.Add(color.FgHiRed)
-	case dotfile.IsChanged():
+	case preparedDotfile.IsChanged():
 		indicatorColor.Add(color.FgBlue)
 	default:
 		indicator = "-"
@@ -151,12 +163,12 @@ func (l *Output) DotfileInfo(dotfile *installer.PreparedDotfile) {
 	}
 
 	group := ""
-	if len(dotfile.Sources) == 1 {
-		group = dotfile.Sources[0].Group
+	if len(preparedDotfile.Sources) == 1 {
+		group = preparedDotfile.Sources[0].Group
 	} else {
-		groups := make([]string, 0, len(dotfile.Sources))
+		groups := make([]string, 0, len(preparedDotfile.Sources))
 
-		for _, source := range dotfile.Sources {
+		for _, source := range preparedDotfile.Sources {
 			groups = append(groups, source.Group)
 		}
 
@@ -174,16 +186,16 @@ func (l *Output) DotfileInfo(dotfile *installer.PreparedDotfile) {
 	fmt.Printf(
 		output,
 		indicatorColor.Sprint(indicator),
-		dotfile.Path,
+		preparedDotfile.Path,
 		group,
 	)
 
-	if dotfile.Permissions.IsChanged() {
+	if preparedDotfile.Permissions.IsChanged() {
 		fmt.Printf(
 			" [%s %s %s]",
-			color.New(color.FgHiRed).Sprintf("%#o", int(dotfile.Permissions.Old)),
+			color.New(color.FgHiRed).Sprintf("%#o", int(preparedDotfile.Permissions.Old)),
 			color.HiWhiteString("→"),
-			color.New(color.FgHiGreen).Sprintf("%#o", int(dotfile.Permissions.New)),
+			color.New(color.FgHiGreen).Sprintf("%#o", int(preparedDotfile.Permissions.New)),
 		)
 	}
 
@@ -193,19 +205,19 @@ func (l *Output) DotfileInfo(dotfile *installer.PreparedDotfile) {
 		fmt.Printf("   %s %s\n", v...)
 	}
 
-	if dotfile.PrepareError != nil {
-		ln(e, color.HiRedString(dotfile.PrepareError.Error()))
+	if preparedDotfile.PrepareError != nil {
+		ln(e, color.HiRedString(preparedDotfile.PrepareError.Error()))
 	}
 
-	if dotfile.OverwritesExisting {
+	if preparedDotfile.OverwritesExisting {
 		ln(w, "ovewriting existing file")
 	}
 
-	if dotfile.SourcePermissionsDiffer {
+	if preparedDotfile.SourcePermissionsDiffer {
 		ln(w, "inconsistent source file permissions")
 	}
 
-	if dotfile.RemovedNull {
+	if preparedDotfile.RemovedNull {
 		ln(n, "nothing to remove")
 	}
 }
